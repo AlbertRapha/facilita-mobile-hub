@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/auth';
@@ -11,13 +11,52 @@ import { Eye, EyeOff } from 'lucide-react';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const { toast } = useToast();
   const [selectedRole, setSelectedRole] = useState<UserRole>('cliente');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Dev mode test credentials
+  const DEV_MODE = import.meta.env.DEV;
+  const TEST_CREDENTIALS = {
+    email: 'rafaelmaiasantos218@gmail.com',
+    password: '32623810',
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const destination = user.role === 'prestador' 
+        ? '/prestador/dashboard' 
+        : user.role === 'administrador'
+        ? '/admin/dashboard'
+        : '/client/home';
+      navigate(destination, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  const handleTestLogin = async () => {
+    setEmail(TEST_CREDENTIALS.email);
+    setPassword(TEST_CREDENTIALS.password);
+    setIsLoading(true);
+    try {
+      await login(TEST_CREDENTIALS.email, TEST_CREDENTIALS.password, selectedRole);
+      toast({
+        title: 'Login de teste',
+        description: 'Autenticado com credenciais de desenvolvimento',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao fazer login',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const roles: { value: UserRole; label: string }[] = [
     { value: 'cliente', label: 'Cliente' },
@@ -171,11 +210,26 @@ const Login: React.FC = () => {
           <button 
             type="button"
             className="text-sm font-semibold text-primary hover:text-primary-light transition-colors"
-            onClick={() => toast({ title: 'Em breve', description: 'Funcionalidade de cadastro em desenvolvimento' })}
+            onClick={() => navigate('/signup')}
           >
             Cadastre-se
           </button>
         </div>
+
+        {/* Dev Mode: Test Credentials Button */}
+        {DEV_MODE && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleTestLogin}
+              disabled={isLoading}
+              className="w-full touch-target h-10 text-sm rounded-xl"
+            >
+              🧪 Usar Conta de Teste
+            </Button>
+          </div>
+        )}
 
         {/* Divider */}
         <div className="relative my-6">
