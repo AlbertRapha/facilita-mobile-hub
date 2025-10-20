@@ -1,168 +1,133 @@
 import React, { useState } from 'react';
-import { Plus, Calendar as CalendarIcon, Clock, MapPin, Phone } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
+import { Calendar, Clock, MapPin, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const Agenda: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { getRequestsByUserId } = useData();
+  const [selectedStatus, setSelectedStatus] = useState<string>('Todos');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const requests = user ? getRequestsByUserId(user.id, user.role) : [];
 
-  const upcomingAppointments = [
-    {
-      id: 1,
-      service: 'Corte de Cabelo',
-      provider: 'Barbearia Express',
-      date: '2025-10-05',
-      time: '14:00',
-      location: 'Rua das Flores, 123',
-      phone: '(11) 98765-4321',
-      status: 'confirmed',
-    },
-    {
-      id: 2,
-      service: 'Massagem',
-      provider: 'Spa Zen',
-      date: '2025-10-08',
-      time: '16:30',
-      location: 'Av. Paulista, 1000',
-      phone: '(11) 91234-5678',
-      status: 'pending',
-    },
-  ];
+  const statusOptions = ['Todos', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled'];
+  const statusLabels: Record<string, string> = {
+    'Todos': 'Todos',
+    'pending': 'Pendente',
+    'accepted': 'Aceita',
+    'in_progress': 'Em Andamento',
+    'completed': 'Concluída',
+    'cancelled': 'Cancelada',
+  };
 
-  const pastAppointments = [
-    {
-      id: 3,
-      service: 'Manicure',
-      provider: 'Salão Glamour',
-      date: '2025-09-28',
-      time: '10:00',
-      status: 'completed',
-    },
-  ];
+  const filteredRequests = requests.filter(request => {
+    const matchesStatus = selectedStatus === 'Todos' || request.status === selectedStatus;
+    const matchesSearch = (request.service_name?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen pb-4">
       {/* Header */}
       <div className="bg-gradient-primary text-primary-foreground px-6 py-6 rounded-b-[24px]">
         <h1 className="text-2xl font-bold mb-2">Minha Agenda</h1>
-        <p className="text-primary-foreground/80">Gerencie seus agendamentos</p>
+        <p className="text-primary-foreground/80">Acompanhe suas solicitações</p>
       </div>
 
-      {/* Tabs */}
+      {/* Search */}
       <div className="px-6 mt-6">
-        <div className="flex gap-2 bg-muted rounded-lg p-1">
-          <button
-            onClick={() => setActiveTab('upcoming')}
-            className={`
-              flex-1 py-2 rounded-md font-medium text-sm transition-all duration-base
-              ${activeTab === 'upcoming' 
-                ? 'bg-card text-foreground shadow-sm' 
-                : 'text-muted-foreground'
-              }
-            `}
-          >
-            Próximos
-          </button>
-          <button
-            onClick={() => setActiveTab('past')}
-            className={`
-              flex-1 py-2 rounded-md font-medium text-sm transition-all duration-base
-              ${activeTab === 'past' 
-                ? 'bg-card text-foreground shadow-sm' 
-                : 'text-muted-foreground'
-              }
-            `}
-          >
-            Histórico
-          </button>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Buscar serviço..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 rounded-xl bg-card border border-border text-base"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
         </div>
       </div>
 
-      {/* Appointments List */}
+      {/* Status Tabs */}
+      <div className="px-6 mt-4">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {statusOptions.map((status) => (
+            <button
+              key={status}
+              onClick={() => setSelectedStatus(status)}
+              className={`
+                px-4 py-2 rounded-xl font-medium text-sm whitespace-nowrap transition-all touch-target
+                ${selectedStatus === status 
+                  ? 'bg-primary text-primary-foreground shadow-sm' 
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }
+              `}
+            >
+              {statusLabels[status]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Requests List */}
       <div className="px-6 mt-6 space-y-4">
-        {activeTab === 'upcoming' ? (
-          upcomingAppointments.length > 0 ? (
-            upcomingAppointments.map((apt) => (
-              <div key={apt.id} className="card-ios p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-lg mb-1">{apt.service}</h3>
-                    <p className="text-sm text-muted-foreground">{apt.provider}</p>
-                  </div>
-                  <span className={`
-                    text-xs font-medium px-3 py-1 rounded-full
-                    ${apt.status === 'confirmed' 
-                      ? 'bg-success/10 text-success' 
-                      : 'bg-warning/10 text-warning'
-                    }
-                  `}>
-                    {apt.status === 'confirmed' ? 'Confirmado' : 'Pendente'}
-                  </span>
+        {filteredRequests.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Nenhuma solicitação encontrada</p>
+          </div>
+        ) : (
+          filteredRequests.map((request) => (
+            <div
+              key={request.id}
+              onClick={() => navigate(`/request/${request.id}`)}
+              className="bg-card rounded-2xl p-5 shadow-sm space-y-4 animate-fade-in cursor-pointer hover:shadow-md transition-shadow"
+            >
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-lg">{request.service_name}</h3>
+                  {request.provider_name && (
+                    <p className="text-sm text-muted-foreground">{request.provider_name}</p>
+                  )}
                 </div>
+                <Badge variant={
+                  request.status === 'pending' ? 'secondary' :
+                  request.status === 'accepted' ? 'default' :
+                  request.status === 'in_progress' ? 'default' :
+                  request.status === 'completed' ? 'default' :
+                  'destructive'
+                }>
+                  {statusLabels[request.status]}
+                </Badge>
+              </div>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <CalendarIcon className="w-4 h-4" />
-                    <span>{new Date(apt.date).toLocaleDateString('pt-BR')}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    <span>{apt.time}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="w-4 h-4" />
-                    <span>{apt.location}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="w-4 h-4" />
-                    <span>{apt.phone}</span>
-                  </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="w-4 h-4" />
+                  <span>{new Date(request.scheduled_date).toLocaleDateString('pt-BR')}</span>
                 </div>
-
-                <div className="flex gap-2 mt-4">
-                  <Button variant="outline" size="sm" className="flex-1">
-                    Reagendar
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1 text-destructive">
-                    Cancelar
-                  </Button>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  <span>{request.scheduled_time}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="w-4 h-4" />
+                  <span className="line-clamp-1">{request.address}</span>
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-12">
-              <CalendarIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground">Nenhum agendamento futuro</p>
-            </div>
-          )
-        ) : (
-          pastAppointments.map((apt) => (
-            <div key={apt.id} className="card-ios p-4 opacity-75">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold mb-1">{apt.service}</h3>
-                  <p className="text-sm text-muted-foreground">{apt.provider}</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {new Date(apt.date).toLocaleDateString('pt-BR')} às {apt.time}
-                  </p>
-                </div>
-                <span className="text-xs font-medium px-3 py-1 rounded-full bg-muted text-muted-foreground">
-                  Concluído
+
+              <div className="pt-2 border-t border-border">
+                <span className="text-lg font-bold text-primary">
+                  R$ {request.value.toFixed(2)}
                 </span>
               </div>
             </div>
           ))
         )}
       </div>
-
-      {/* FAB - Add New Appointment */}
-      {activeTab === 'upcoming' && (
-        <button
-          className="fab animate-scale-in"
-          aria-label="Novo agendamento"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
-      )}
     </div>
   );
 };
